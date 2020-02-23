@@ -1,0 +1,245 @@
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Data.SqlClient;
+using System.Web;
+
+
+public class Common
+{
+    private static string collegecd;
+    private static string majorcd;
+    private static string netid;
+    private static string fname;
+    private static string preferredemail;
+	public Common()
+	{
+        
+    }
+    public static void getUserInfo()
+    {
+        DataTable dt = new DataTable();
+        using (var myConnection = new SqlConnection(System.Configuration.ConfigurationManager.ConnectionStrings["MyConnectionString"].ConnectionString))
+        {
+            using (var myCommand = new SqlCommand("SELECT * FROM Students WHERE netid =@netid", myConnection))
+            {
+                myConnection.Open();
+                myCommand.CommandType = CommandType.Text;
+                myCommand.Parameters.AddWithValue("@netid", netid);
+                SqlDataAdapter mySqlDataAdapter = new SqlDataAdapter(myCommand);
+                mySqlDataAdapter.Fill(dt);
+                if (dt.Rows.Count > 0)
+                {
+                    collegecd = dt.Rows[0]["collegecd"].ToString();
+                    majorcd = dt.Rows[0]["majorcd"].ToString();
+                    fname = dt.Rows[0]["fname"].ToString();
+                    preferredemail = dt.Rows[0]["altemail"].ToString();
+                }
+            }
+        }
+    }
+    public static bool majorCapFull(int sessionid)
+    {
+        int majorcount = 0;
+        int capcount = 0;
+        DataTable dt = new DataTable();
+        if (sessionid != 14) //Session 3 does not have a limit
+        {
+            using (var myConnection = new SqlConnection(System.Configuration.ConfigurationManager.ConnectionStrings["MyConnectionString"].ConnectionString))
+            {
+                using (var myCommand = new SqlCommand("GetMajorsFromMultipleMajorCaps", myConnection))
+                {
+                    myConnection.Open();
+                    myCommand.CommandType = CommandType.StoredProcedure;
+                    myCommand.Parameters.AddWithValue("@majorcd", majorcd);
+                    myCommand.Parameters.AddWithValue("@sessionid", sessionid);
+                    SqlDataAdapter mySqlDataAdapter = new SqlDataAdapter(myCommand);
+                    mySqlDataAdapter.Fill(dt);
+                    if (dt.Rows.Count > 0)
+                    {
+                        foreach(DataRow dr in dt.Rows)
+                        {
+                            using (var myNewCommand = new SqlCommand(" SELECT Count(*) as majorcount FROM Students WHERE majorcd=@majorcd AND admitted IS NOT NULL and archive is null and session = " + sessionid, myConnection))
+                            {
+                                DataTable dtNew = new DataTable();
+                                myNewCommand.CommandType = CommandType.Text;
+                                myNewCommand.Parameters.AddWithValue("@majorcd", dr["majorcd"].ToString());
+                                SqlDataAdapter myNewSqlDataAdapter = new SqlDataAdapter(myNewCommand);
+                                myNewSqlDataAdapter.Fill(dtNew);
+                                if (dtNew.Rows.Count > 0)
+                                {
+                                    majorcount += Convert.ToInt32(dtNew.Rows[0]["majorcount"]);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            DataTable dtCap = new DataTable();
+            using (var myConnection = new SqlConnection(System.Configuration.ConfigurationManager.ConnectionStrings["MyConnectionString"].ConnectionString))
+            {
+                using (var myCommand = new SqlCommand("SELECT cap as capcount FROM Caps WHERE (majorcd=@majorcd OR (',' + RTRIM(majorcd) + ',') LIKE '%'+ @majorcd + '%') AND SessionID = @sessionid", myConnection))
+                {
+                    myConnection.Open();
+                    myCommand.CommandType = CommandType.Text;
+                    myCommand.Parameters.AddWithValue("@majorcd", majorcd);
+                    myCommand.Parameters.AddWithValue("@sessionid", sessionid);
+                    SqlDataAdapter mySqlDataAdapter = new SqlDataAdapter(myCommand);
+                    mySqlDataAdapter.Fill(dtCap);
+                    if (dtCap.Rows.Count > 0)
+                    {
+                        capcount = Convert.ToInt32(dtCap.Rows[0]["capcount"]);
+                    }
+                }
+            }
+            if (capcount != 0)
+            {
+                if (capcount <= majorcount)
+                    return true;
+                else return false;
+            }
+            return false;
+        }
+        else
+            return false;
+    }
+    public static bool collegeCapFull(int sessionid)
+    {
+        int collegecount = 0;
+        int capcount = 0;
+        DataTable dt = new DataTable();
+        if (sessionid != 3)
+        {
+            using (var myConnection = new SqlConnection(System.Configuration.ConfigurationManager.ConnectionStrings["MyConnectionString"].ConnectionString))
+            {
+                using (var myCommand = new SqlCommand("SELECT Count(*) as collegecount FROM Students WHERE collegecd=@collegecd AND admitted IS NOT NULL and archive is null and session = " + sessionid, myConnection))
+                {
+                    myConnection.Open();
+                    myCommand.CommandType = CommandType.Text;
+                    myCommand.Parameters.AddWithValue("@collegecd", collegecd);
+                    SqlDataAdapter mySqlDataAdapter = new SqlDataAdapter(myCommand);
+                    mySqlDataAdapter.Fill(dt);
+                    if (dt.Rows.Count > 0)
+                    {
+                        collegecount = Convert.ToInt32(dt.Rows[0]["collegecount"]);
+                    }
+                }
+            }
+            DataTable dtCap = new DataTable();
+            using (var myConnection = new SqlConnection(System.Configuration.ConfigurationManager.ConnectionStrings["ODOSConnectionString"].ConnectionString))
+            {
+                using (var myCommand = new SqlCommand("SELECT Cap as capcount FROM CollegeCaps WHERE collegecd =@collegecd AND SessionID = @sessionid", myConnection))
+                {
+                    myConnection.Open();
+                    myCommand.CommandType = CommandType.Text;
+                    myCommand.Parameters.AddWithValue("@collegecd", collegecd);
+                    myCommand.Parameters.AddWithValue("@sessionid", sessionid);
+                    SqlDataAdapter mySqlDataAdapter = new SqlDataAdapter(myCommand);
+                    mySqlDataAdapter.Fill(dtCap);
+                    if (dtCap.Rows.Count > 0)
+                    {
+                        capcount = Convert.ToInt32(dtCap.Rows[0]["capcount"]);
+                    }
+                }
+            }
+            if (capcount != 0)
+            {
+                if (capcount <= collegecount)
+                    return true;
+                else return false;
+            }
+            return false;
+        }
+        else
+            return false;
+    }
+    public static bool sessionCapFull(int sessionid)
+    {
+        int majorcount = 0;
+        int capcount = 0;
+        DataTable dt = new DataTable();
+        using (var myConnection = new SqlConnection(System.Configuration.ConfigurationManager.ConnectionStrings["MyConnectionString"].ConnectionString))
+        {
+            using (var myCommand = new SqlCommand("SELECT Count(*) as sessioncount FROM Students WHERE session=@sessionid AND admitted IS NOT NULL and archive is null and session = " + sessionid, myConnection))
+            {
+                myConnection.Open();
+                myCommand.CommandType = CommandType.Text;
+                myCommand.Parameters.AddWithValue("@sessionid", sessionid);
+                SqlDataAdapter mySqlDataAdapter = new SqlDataAdapter(myCommand);
+                mySqlDataAdapter.Fill(dt);
+                if (dt.Rows.Count > 0)
+                {
+                    majorcount = Convert.ToInt32(dt.Rows[0]["sessioncount"]);
+                }
+            }
+        }
+        DataTable dtCap = new DataTable();
+        using (var myConnection = new SqlConnection(System.Configuration.ConfigurationManager.ConnectionStrings["MyConnectionString"].ConnectionString))
+        {
+            using (var myCommand = new SqlCommand("SELECT cap as capcount FROM Sessions WHERE sessionid =@sessionid", myConnection))
+            {
+                myConnection.Open();
+                myCommand.CommandType = CommandType.Text;
+                myCommand.Parameters.AddWithValue("@sessionid", sessionid);
+                SqlDataAdapter mySqlDataAdapter = new SqlDataAdapter(myCommand);
+                mySqlDataAdapter.Fill(dtCap);
+                if (dtCap.Rows.Count > 0)
+                {
+                    capcount = Convert.ToInt32(dtCap.Rows[0]["capcount"]);
+                }
+            }
+        }
+        if (capcount != 0)
+        {
+            if (capcount <= majorcount)
+                return true;
+            else return false;
+        }
+        return false;
+    }
+    public static int getMajorAdmittedNumber(int sessionid, int programtype, int majorcd)
+    {
+        using (var myConnection = new SqlConnection(System.Configuration.ConfigurationManager.ConnectionStrings["MyConnectionString"].ConnectionString))
+        {
+            using (var myCommand = new SqlCommand("GetAdmittedMajorNumber", myConnection))
+            {
+                myConnection.Open();
+                myCommand.CommandType = CommandType.StoredProcedure;
+                myCommand.Parameters.AddWithValue("@sessionid", sessionid);
+                myCommand.Parameters.AddWithValue("@programtype", programtype);
+                myCommand.Parameters.AddWithValue("@majorcd", majorcd);
+                SqlDataAdapter mySqlDataAdapter = new SqlDataAdapter(myCommand);
+                DataTable dt = new DataTable();
+                mySqlDataAdapter.Fill(dt);
+                if (dt.Rows.Count > 0)
+                {
+                    return Convert.ToInt32(dt.Rows[0]["Admitted"]);
+                }
+                else
+                    return 0;
+            }
+        }
+    }
+    public static void setNetID(string passedNetid)
+    {
+        netid = passedNetid;
+    }
+    public static string getcollegecd()
+    {
+        
+        return collegecd;
+    }
+    public static string getmajorcd()
+    {
+        return majorcd;
+    }
+    public static string getFName()
+    {
+        return fname;
+    }
+    public static string getPreferredEmail()
+    {
+        return preferredemail;
+    }
+}
